@@ -1,8 +1,9 @@
 import requests
 import os
-import time
+import datetime
 import sqlite3
 import json
+import sys
 
 # Configuration, global parameters
 DB_FILE = "adsb.db"
@@ -51,7 +52,7 @@ def process_aircraft_data(aircraft_list):
 
     try:
         cursor = connection.cursor()
-        current_timestamp = int(time.time())
+        current_timestamp = int(datetime.datetime.timestamp(datetime.datetime.now()))
 
         for aircraft in aircraft_list:
             icao = aircraft.get('hex')
@@ -107,7 +108,7 @@ def cleanup_old_aircraft(timeout_seconds=3600):
 
     try:
         cursor = connection.cursor()
-        cleanup_timestamp = int(time.time()) - timeout_seconds
+        cleanup_timestamp = int(datetime.datetime.timestamp(datetime.datetime.now())) - timeout_seconds
 
         cursor.execute("SELECT icao24 FROM aircraft WHERE last_seen < ?", (cleanup_timestamp,))
         stale_aircraft_tuples = cursor.fetchall()
@@ -179,20 +180,23 @@ def print_db_contents():
             connection.close()
 
 
-def main():
+def main(argv):
     ret_json = get_adsb_feed()
     l = ret_json['ac']
     d = hex_list_2_dict(ret_json['ac'])
-
-    print(f"--- First run: Upserting {len(l)} aircraft ---")
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    if 'silent' not in argv:
+        print(f"--- {now} Upserting {len(l)} aircraft ---")
     process_aircraft_data(l)
 
-    print("\n--- Running cleanup task (1-hour threshold) ---")
+    if 'silent' not in argv:
+        print("\n--- Running cleanup task (1-hour threshold) ---")
     cleanup_old_aircraft(timeout_seconds=3600)
-
-    print("\n--- Verifying Database Contents (After Cleanup) ---")
-    print_db_contents()
+    
+    if 'silent' not in argv:
+        print("\n--- Verifying Database Contents (After Cleanup) ---")
+        print_db_contents()
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
