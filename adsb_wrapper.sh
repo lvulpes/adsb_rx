@@ -12,6 +12,6 @@ source $PYENV_ADSB
 cd $PY_PATH
 
 # Run your Python script with the pyenv-managed Python
-python $PY_SRC
+python $PY_SRC --silent
 # Optional: Deactivate the environment (good practice for clean scripts)
 deactivate
