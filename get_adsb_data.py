@@ -158,7 +158,9 @@ def print_db_contents():
             print(f"{'ICAO24':<10} | {'Flight':<11} | {'Squawk': <10} | {'First Seen':<12} | {'Last Seen'}")
             print("-" * 52)
             for row in rows:
-                print(f"{row['icao24']:<10} | {row['flight']:<11} | {row['squawk']: <10} | {row['first_seen']:<12} | {row['last_seen']}")
+                fs = datetime.datetime.fromtimetamp(row['first_seen']).strftime('%Y-%m-%d %H:%M:%S')
+                ls = datetime.datetime.fromtimetamp(row['last_seen']).strftime('%Y-%m-%d %H:%M:%S')
+                print(f"{row['icao24']:<10} | {row['flight']:<11} | {row['squawk']: <10} | {fs:<12} | {ls}")
 
         print("\n[ positions table (last 5 entries) ]")
         cursor.execute("SELECT id, icao24, timestamp, lat, lon, altitude FROM positions ORDER BY id DESC LIMIT 5")
@@ -169,6 +171,7 @@ def print_db_contents():
             print(f"{'ID':<5} | {'ICAO24':<10} | {'Timestamp':<12} | {'Lat':<10} | {'Lon':<10} | {'Altitude'}")
             print("-" * 70)
             for row in rows:
+                ts = datetime.datetime.fromtimetamp(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
                 print(f"{row['id']:<5} | {row['icao24']:<10} | {row['timestamp']:<12} | {row['lat']:<10} | {row['lon']:<10} | {row['altitude']}")
 
         print("\n---------------------------------")
