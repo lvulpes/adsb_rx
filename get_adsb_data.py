@@ -185,15 +185,15 @@ def main(argv):
     l = ret_json['ac']
     d = hex_list_2_dict(ret_json['ac'])
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    if 'silent' not in argv:
+    if '--silent' not in argv:
         print(f"--- {now} Upserting {len(l)} aircraft ---")
     process_aircraft_data(l)
 
-    if 'silent' not in argv:
+    if '--silent' not in argv:
         print("\n--- Running cleanup task (1-hour threshold) ---")
     cleanup_old_aircraft(timeout_seconds=3600)
     
-    if 'silent' not in argv:
+    if '--silent' not in argv:
         print("\n--- Verifying Database Contents (After Cleanup) ---")
         print_db_contents()
 
