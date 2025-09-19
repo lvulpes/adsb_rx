@@ -150,15 +150,15 @@ def print_db_contents():
         print("\n--- Current Database Contents ---")
         
         print("\n[ aircraft table ]")
-        cursor.execute("SELECT icao24, flight, first_seen, last_seen FROM aircraft")
+        cursor.execute("SELECT icao24, flight, first_seen, last_seen, squawk FROM aircraft")
         rows = cursor.fetchall()
         if not rows:
             print("...empty...")
         else:
-            print(f"{'ICAO24':<10} | {'Flight':<11} | {'First Seen':<12} | {'Last Seen'}")
+            print(f"{'ICAO24':<10} | {'Flight':<11} | {'Squawk': <10} | {'First Seen':<12} | {'Last Seen'}")
             print("-" * 52)
             for row in rows:
-                print(f"{row['icao24']:<10} | {row['flight']:<11} | {row['first_seen']:<12} | {row['last_seen']}")
+                print(f"{row['icao24']:<10} | {row['flight']:<11} | {row['squawk']: <10} | {row['first_seen']:<12} | {row['last_seen']}")
 
         print("\n[ positions table (last 5 entries) ]")
         cursor.execute("SELECT id, icao24, timestamp, lat, lon, altitude FROM positions ORDER BY id DESC LIMIT 5")
