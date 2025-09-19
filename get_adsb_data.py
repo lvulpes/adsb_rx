@@ -155,7 +155,7 @@ def print_db_contents():
         if not rows:
             print("...empty...")
         else:
-            print(f"{'ICAO24':<10} | {'Flight':<11} | {'Squawk': <10} | {'First Seen':<12} | {'Last Seen'}")
+            print(f"{'ICAO24':<10} | {'Flight':<11} | {'Squawk': <10} | {'First Seen':<20} | {'Last Seen'}")
             print("-" * 52)
             for row in rows:
                 fs = datetime.datetime.fromtimestamp(row['first_seen']).strftime('%Y-%m-%d %H:%M:%S')
@@ -168,11 +168,11 @@ def print_db_contents():
         if not rows:
             print("...empty...")
         else:
-            print(f"{'ID':<5} | {'ICAO24':<10} | {'Timestamp':<12} | {'Lat':<10} | {'Lon':<10} | {'Altitude'}")
+            print(f"{'ID':<5} | {'ICAO24':<10} | {'Timestamp':<20} | {'Lat':<10} | {'Lon':<10} | {'Altitude'}")
             print("-" * 70)
             for row in rows:
                 ts = datetime.datetime.fromtimestamp(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
-                print(f"{row['id']:<5} | {row['icao24']:<10} | {row['timestamp']:<12} | {row['lat']:<10} | {row['lon']:<10} | {row['altitude']}")
+                print(f"{row['id']:<5} | {row['icao24']:<10} | {ts:<20} | {row['lat']:<10} | {row['lon']:<10} | {row['altitude']}")
 
         print("\n---------------------------------")
         
