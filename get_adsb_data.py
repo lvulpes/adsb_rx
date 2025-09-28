@@ -174,8 +174,6 @@ def print_db_contents():
         print("\n[ aircraft table ]")
         cursor.execute("SELECT icao24, flight, first_seen, last_seen, squawk FROM aircraft")
         rows = cursor.fetchall()
-        #cursor.execute("SELECT id, icao24, timestamp, lat, lon, altitude FROM positions ORDER BY id DESC LIMIT 5")
-        #loc_rows = cursor.fetchall()
         if not rows:
             print("...empty...")
         else:
@@ -185,9 +183,9 @@ def print_db_contents():
             for row in rows:
                 fs = datetime.datetime.fromtimestamp(row['first_seen']).strftime('%Y-%m-%d %H:%M:%S')
                 ls = datetime.datetime.fromtimestamp(row['last_seen']).strftime('%Y-%m-%d %H:%M:%S')
-                loc_test = get_last_location(row['icao24'])
+                loc = get_last_location(row['icao24'])
                 ac_info = f"{row['icao24']: <10} | {row['flight']: <11} | {row['squawk']: <10} | {fs: <12} | {ls: <20}"
-                loc_info = f"| {loc_test['lat']: <10} | {loc_test['lon']: <10} | {loc_test['altitude']}" if loc_test else "Position not in db"
+                loc_info = f"| {loc['lat']: <10} | {loc['lon']: <10} | {loc['altitude']}" if loc else "Position not in db"
                 print(ac_info + loc_info)
 
         """
