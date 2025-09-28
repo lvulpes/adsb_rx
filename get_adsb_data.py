@@ -48,7 +48,7 @@ def process_aircraft_data(aircraft_list):
     connection = get_db_connection()
     if not connection:
         print('Returning without doing anything')
-        return # Exit if connection failed
+        return
 
     try:
         cursor = connection.cursor()
@@ -137,6 +137,28 @@ def cleanup_old_aircraft(timeout_seconds=3600):
         if connection:
             connection.close()
 
+def get_last_location(icao: str) -> list:
+    """ Gets the last known location data for an ICAO identifier. """
+    locations = []
+    connection = get_db_connection()
+    if not connection:
+        return
+
+    try:
+        connection.row_factory = sqlite3.Row
+        cursor = connection.cursor()        
+        cursor.execute(f"SELECT id, icao24, timestamp, lat, lon, altitude FROM positions WHERE icao24 = '{icao}' ORDER BY id")
+        loc_rows = cursor.fetchall()
+    except Exception as e:
+        print(f'lookup for {icao}: {e}')
+    else:
+        for loc in loc_rows:
+            loc_dict = {k: loc[k] for k in loc.keys()}
+            locations.append(loc_dict.copy())
+        # sort by timestamp
+        locations.sort(key=lambda x: x['timestamp'], reverse=True)
+        if locations: return locations[0]
+
 def print_db_contents():
     """Connects to the DB and prints the contents of all tables for verification."""
     connection = get_db_connection()
@@ -155,13 +177,18 @@ def print_db_contents():
         if not rows:
             print("...empty...")
         else:
-            print(f"{'ICAO24':<10} | {'Flight':<11} | {'Squawk': <10} | {'First Seen':<20} | {'Last Seen'}")
+            print(f"{'ICAO24':<10} | {'Flight':<11} | {'Squawk': <10} | {'First Seen':<20} | {'Last Seen': <20} | {'Lat':<10} | {'Lon':<10} | {'Altitude'}")
             print("-" * 80)
+            
             for row in rows:
                 fs = datetime.datetime.fromtimestamp(row['first_seen']).strftime('%Y-%m-%d %H:%M:%S')
                 ls = datetime.datetime.fromtimestamp(row['last_seen']).strftime('%Y-%m-%d %H:%M:%S')
-                print(f"{row['icao24']:<10} | {row['flight']:<11} | {row['squawk']: <10} | {fs:<12} | {ls}")
+                loc = get_last_location(row['icao24'])
+                ac_info = f"{row['icao24']: <10} | {row['flight']: <11} | {row['squawk']: <10} | {fs: <12} | {ls: <20}"
+                loc_info = f"| {loc['lat']: <10} | {loc['lon']: <10} | {loc['altitude']}" if loc else "Position not in db"
+                print(ac_info + loc_info)
 
+        """
         print("\n[ positions table (last 5 entries) ]")
         cursor.execute("SELECT id, icao24, timestamp, lat, lon, altitude FROM positions ORDER BY id DESC LIMIT 5")
         rows = cursor.fetchall()
@@ -175,6 +202,7 @@ def print_db_contents():
                 print(f"{row['id']:<5} | {row['icao24']:<10} | {ts:<20} | {row['lat']:<10} | {row['lon']:<10} | {row['altitude']}")
 
         print("\n---------------------------------")
+        """
         
     except sqlite3.Error as e:
         print(f"Database error while reading contents: {e}")
