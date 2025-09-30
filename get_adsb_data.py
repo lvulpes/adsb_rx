@@ -4,17 +4,20 @@ import datetime
 import sqlite3
 import json
 import sys
+import time
 
 # Configuration, global parameters
 DB_FILE = "adsb.db"
 
-def get_adsb_feed():
+def get_adsb_feed(URL: str) -> dict:
     headers = {
     }
     # Get ADS-B data for aircraft within 10NM of Winterthur
-    # response = requests.get('https://adsbexchange.com/api/aircraft/lat/47.4999/lon/8.7262/dist/10/', headers = headers)
-    URL_ADSB_ONE = 'https://api.adsb.one/v2/point/47.4999/8.7262/10'
-    response = requests.get(URL_ADSB_ONE, headers = headers)
+    # response = requests.get('https://adsbexchange.com/api/aircraft/lat/47.4999/lon/8.7262/dist/10/', headers = headers)\
+    # JUST GET ALL ADSB DATA AT THIS POINT
+    #URL_ADSB_ONE_MIL = 'https://api.adsb.one/v2/point/57.536472/18.528914/200?filterDbFlag=military'
+    #URL_ADSB_ONE = 'https://api.adsb.one/v2/point/47.4999/8.7262/10'
+    response = requests.get(URL, headers = headers)
     return response.json()
 
 def hex_list_2_dict(hexes: list) -> dict:
@@ -41,7 +44,7 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         return None
 
-def process_aircraft_data(aircraft_list):
+def process_aircraft_data(aircraft_list, ac_table, pos_table):
     """
     Connects to the database and updates it with a list of aircraft data.
     """
@@ -64,8 +67,8 @@ def process_aircraft_data(aircraft_list):
             if flight: # Ensure flight is a string before stripping
                 flight = flight.strip()
 
-            cursor.execute("""
-                INSERT INTO aircraft (icao24, flight, first_seen, last_seen, squawk)
+            cursor.execute(f"""
+                INSERT INTO {ac_table} (icao24, flight, first_seen, last_seen, squawk)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(icao24) DO UPDATE SET
                     flight = excluded.flight,
@@ -73,8 +76,8 @@ def process_aircraft_data(aircraft_list):
                     last_seen = excluded.last_seen;
             """, (icao, flight, current_timestamp, current_timestamp, squawk))
             
-            cursor.execute("""
-                INSERT INTO positions (icao24, timestamp, lat, lon, altitude, ground_speed, track)
+            cursor.execute(f"""
+                INSERT INTO {pos_table} (icao24, timestamp, lat, lon, altitude, ground_speed, track)
                 VALUES (?, ?, ?, ?, ?, ?, ?);
             """, (
                 icao,
@@ -97,7 +100,7 @@ def process_aircraft_data(aircraft_list):
         if connection:
             connection.close()
 
-def cleanup_old_aircraft(timeout_seconds=3600):
+def cleanup_old_aircraft(ac_table, pos_table, timeout_seconds=3600):
     """
     Removes aircraft and their position data if they haven't been seen
     for the specified duration.
@@ -110,7 +113,7 @@ def cleanup_old_aircraft(timeout_seconds=3600):
         cursor = connection.cursor()
         cleanup_timestamp = int(datetime.datetime.timestamp(datetime.datetime.now())) - timeout_seconds
 
-        cursor.execute("SELECT icao24 FROM aircraft WHERE last_seen < ?", (cleanup_timestamp,))
+        cursor.execute(f"SELECT icao24 FROM {ac_table} WHERE last_seen < ?", (cleanup_timestamp,))
         stale_aircraft_tuples = cursor.fetchall()
 
         if not stale_aircraft_tuples:
@@ -120,10 +123,10 @@ def cleanup_old_aircraft(timeout_seconds=3600):
         stale_aircraft_ids = [item[0] for item in stale_aircraft_tuples]
         placeholders = ', '.join('?' for _ in stale_aircraft_ids)
 
-        cursor.execute(f"DELETE FROM positions WHERE icao24 IN ({placeholders})", stale_aircraft_ids)
+        cursor.execute(f"DELETE FROM {pos_table} WHERE icao24 IN ({placeholders})", stale_aircraft_ids)
         positions_deleted = cursor.rowcount
 
-        cursor.execute(f"DELETE FROM aircraft WHERE icao24 IN ({placeholders})", stale_aircraft_ids)
+        cursor.execute(f"DELETE FROM {ac_table} WHERE icao24 IN ({placeholders})", stale_aircraft_ids)
         aircraft_deleted = cursor.rowcount
 
         connection.commit()
@@ -159,7 +162,7 @@ def get_last_location(icao: str) -> list:
         locations.sort(key=lambda x: x['timestamp'], reverse=True)
         if locations: return locations[0]
 
-def print_db_contents():
+def print_db_contents(ac_table):
     """Connects to the DB and prints the contents of all tables for verification."""
     connection = get_db_connection()
     if not connection:
@@ -172,7 +175,7 @@ def print_db_contents():
         print("\n--- Current Database Contents ---")
         
         print("\n[ aircraft table ]")
-        cursor.execute("SELECT icao24, flight, first_seen, last_seen, squawk FROM aircraft")
+        cursor.execute(f"SELECT icao24, flight, first_seen, last_seen, squawk FROM {ac_table}")
         rows = cursor.fetchall()
         if not rows:
             print("...empty...")
@@ -188,44 +191,46 @@ def print_db_contents():
                 loc_info = f"| {loc['lat']: <10} | {loc['lon']: <10} | {loc['altitude']}" if loc else "Position not in db"
                 print(ac_info + loc_info)
 
-        """
-        print("\n[ positions table (last 5 entries) ]")
-        cursor.execute("SELECT id, icao24, timestamp, lat, lon, altitude FROM positions ORDER BY id DESC LIMIT 5")
-        rows = cursor.fetchall()
-        if not rows:
-            print("...empty...")
-        else:
-            print(f"{'ID':<5} | {'ICAO24':<10} | {'Timestamp':<20} | {'Lat':<10} | {'Lon':<10} | {'Altitude'}")
-            print("-" * 80)
-            for row in rows:
-                ts = datetime.datetime.fromtimestamp(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
-                print(f"{row['id']:<5} | {row['icao24']:<10} | {ts:<20} | {row['lat']:<10} | {row['lon']:<10} | {row['altitude']}")
-
-        print("\n---------------------------------")
-        """
-        
     except sqlite3.Error as e:
         print(f"Database error while reading contents: {e}")
     finally:
         if connection:
             connection.close()
 
-
 def main(argv):
-    ret_json = get_adsb_feed()
-    l = ret_json['ac']
-    d = hex_list_2_dict(ret_json['ac'])
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"--- {now} Upserting {len(l)} aircraft ---")
-    process_aircraft_data(l)
+    PATH = os.path.dirname(os.path.abspath(__file__))
+    print(PATH + '/config.json')
+    with open(PATH + '/config.json', 'r', encoding='utf-8') as conf:
+        config = json.load(conf)
 
-    if '--silent' not in argv:
-        print("\n--- Running cleanup task (1-hour threshold) ---")
-    cleanup_old_aircraft(timeout_seconds=3600)
+    aircraft_data = {}
+    for query in config['endpoints'].keys():
+        # Add returned data under each key, sleep due to rate limiting
+        aircraft_data[query] = get_adsb_feed(config['endpoints'][query]['url'])
+        time.sleep(1)
+        # Attach config data to use later
+        aircraft_data[query].update(config['endpoints'][query])
     
-    if '--silent' not in argv:
-        print("\n--- Verifying Database Contents (After Cleanup) ---")
-        print_db_contents()
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    for query in list(aircraft_data.keys()):
+        ac_list = aircraft_data[query]['ac']
+        if len(aircraft_data[query]['tables']) >= 2:
+            ac_table = aircraft_data[query]['tables'][0]
+            pos_table = aircraft_data[query]['tables'][1]
+        else:
+            raise ValueError('Both aircraft table and positions table must be defined in config!')
+        # TODO: Add argument to process, cleanup and print so correct table is treated
+        # TODO: Then implement a lat/lon filtering function to filter for baltic
+        print(f"--- {now} Upserting {len(ac_list)} aircraft ---")
+        process_aircraft_data(ac_list, ac_table, pos_table)
+
+        if '--silent' not in argv:
+            print("\n--- Running cleanup task (1-hour threshold) ---")
+        cleanup_old_aircraft(ac_table, pos_table, timeout_seconds=3600)
+        
+        if '--silent' not in argv:
+            print("\n--- Verifying Database Contents (After Cleanup) ---")
+            print_db_contents(ac_table)
 
 
 if __name__ == '__main__':
