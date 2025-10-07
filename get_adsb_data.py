@@ -6,6 +6,8 @@ import json
 import sys
 import time
 
+import geo
+
 # Configuration, global parameters
 DB_FILE = "adsb.db"
 
@@ -213,7 +215,12 @@ def main(argv):
     
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     for query in list(aircraft_data.keys()):
-        ac_list = aircraft_data[query]['ac']
+        # hardcode filtering for testing
+        if query == 'mil':
+            ac_list = [ac for ac in aircraft_data[query]['ac'] if geo.within_poi(ac, config['poi']['baltic']['coordinates'])]
+            print(json.dumps(ac_list, indent=4, default=str))
+        else:
+            ac_list = aircraft_data[query]['ac']
         if len(aircraft_data[query]['tables']) >= 2:
             ac_table = aircraft_data[query]['tables'][0]
             pos_table = aircraft_data[query]['tables'][1]
