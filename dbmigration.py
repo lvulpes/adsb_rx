@@ -67,6 +67,35 @@ def create_database():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_positions_timestamp ON positions (timestamp);")
         print("Indexes created or already exist.")
 
+        # --- Create Military Aircraft Tables ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS aircraft_military (
+                icao24 TEXT PRIMARY KEY NOT NULL,
+                flight TEXT,
+                source TEXT,
+                first_seen INTEGER NOT NULL,
+                last_seen INTEGER NOT NULL
+            );
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS positions_military (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                icao24 TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                lat REAL,
+                lon REAL,
+                altitude INTEGER,
+                gs REAL,
+                track REAL,
+                FOREIGN KEY (icao24) REFERENCES aircraft_military (icao24) ON DELETE CASCADE
+            );
+        """)
+        # --- Create Indexes for Military Positions Table ---
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_positions_military_icao24 ON positions_military (icao24);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_positions_military_timestamp ON positions_military (timestamp);")
+        print("Indexes created or already exist.")
+
         # Commit the changes to the database
         connection.commit()
         print("Database schema is up to date.")
@@ -80,7 +109,7 @@ def create_database():
             print("Database connection closed.")
 
 
-def add_column(new: str) -> None:
+def add_column(table: str, new: str) -> None:
     """
     Applies schema changes to an existing database.
     This script is intended to be run once.
@@ -96,10 +125,10 @@ def add_column(new: str) -> None:
         cursor = connection.cursor()
 
         # --- MIGRATION 1: Add 'source' column to 'aircraft' table ---
-        print(f"\nAttempting to add '{new}' column to 'aircraft' table...")
+        print(f"\nAttempting to add '{new}' column to {table} table...")
         try:
-            cursor.execute(f"ALTER TABLE aircraft ADD COLUMN {new} TEXT")
-            print(f" -> Success: Added '{new}' column.")
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {new} TEXT")
+            print(f" -> Success: Added '{new}' column to {table}.")
         except sqlite3.OperationalError as e:
             if "duplicate column name" in str(e):
                 print(f" -> Info: '{new}' column already exists. Skipping.")
@@ -118,7 +147,7 @@ def add_column(new: str) -> None:
         if connection:
             connection.close()
 
-def rename_column(old: str, new: str) -> None:
+def rename_column(table: str, old: str, new: str) -> None:
     """
     Applies schema changes to an existing database.
     This script is intended to be run once.
@@ -138,9 +167,9 @@ def rename_column(old: str, new: str) -> None:
         print(f"\nAttempting to rename {old} column to {new}...")
         try:
             # We first check if the old column exists before trying to rename
-            cursor.execute(f"SELECT {old} FROM positions LIMIT 1")
+            cursor.execute(f"SELECT {old} FROM {table} LIMIT 1")
             # If the above line doesn't fail, the column exists, so we rename it
-            cursor.execute(f"ALTER TABLE positions RENAME COLUMN {old} TO {new}")
+            cursor.execute(f"ALTER TABLE {table} RENAME COLUMN {old} TO {new}")
             print(f" -> Success: Renamed {old} to {new}.")
         except sqlite3.OperationalError as e:
             if f"no such column: {old}" in str(e):
@@ -163,5 +192,7 @@ def rename_column(old: str, new: str) -> None:
 if __name__ == "__main__":
     # Check SQLite version for user awareness
     print(f"Using SQLite version: {sqlite3.sqlite_version}")
-    create_database()
+    #create_database()
+    #add_column('aircraft_military', 'squawk')
+    rename_column('positions_military', 'gs', 'ground_speed')
     print('Terminating...')

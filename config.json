@@ -1,0 +1,21 @@
+{
+	"endpoints": {
+		"mil": {
+			"tables": ["aircraft_military", "positions_military"],
+			"url": "https://api.adsb.one/v2/mil",
+			"filter": "baltic"},
+		"home": {
+			"tables": ["aircraft", "positions"],
+			 "url": "https://api.adsb.one/v2/point/47.4999/8.7262/10"}
+	},
+	"poi": {
+		"baltic": {
+			"coordinates": {
+				"lat": "57.470279",
+				"lon": "18.512082",
+				"distance": "500",
+				"unit": "km"
+			}
+		}
+	}
+}
