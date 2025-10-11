@@ -86,7 +86,7 @@ def create_database():
                 lat REAL,
                 lon REAL,
                 altitude INTEGER,
-                gs REAL,
+                ground_speed REAL,
                 track REAL,
                 FOREIGN KEY (icao24) REFERENCES aircraft_military (icao24) ON DELETE CASCADE
             );
@@ -192,7 +192,7 @@ def rename_column(table: str, old: str, new: str) -> None:
 if __name__ == "__main__":
     # Check SQLite version for user awareness
     print(f"Using SQLite version: {sqlite3.sqlite_version}")
-    #create_database()
-    #add_column('aircraft_military', 'squawk')
-    rename_column('positions_military', 'gs', 'ground_speed')
+    create_database()
+    add_column('aircraft_military', 'squawk')
+    # rename_column('positions_military', 'gs', 'ground_speed')
     print('Terminating...')
