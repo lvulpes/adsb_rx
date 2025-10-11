@@ -92,7 +92,7 @@ def process_aircraft_data(aircraft_list, ac_table, pos_table):
             ))
         
         connection.commit()
-        print(f"Successfully processed {len(aircraft_list)} aircraft records.")
+        print(f"Successfully processed {len(aircraft_list)} aircraft records in {ac_table}.")
 
     except sqlite3.Error as e:
         print(f"Database error: {e}")
@@ -199,9 +199,14 @@ def print_db_contents(ac_table):
         if connection:
             connection.close()
 
+def poi_filter(filter_conf: dict, aircraft: list) -> list:
+    return [ac for ac in aircraft if geo.within_poi(aircraft, filter_conf['coordinates'])]
+
 def main(argv):
     PATH = os.path.dirname(os.path.abspath(__file__))
-    print(PATH + '/config.json')
+    LOUD = None
+    if '--silent' not in argv:
+        LOUD = True
     with open(PATH + '/config.json', 'r', encoding='utf-8') as conf:
         config = json.load(conf)
 
@@ -215,27 +220,27 @@ def main(argv):
     
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     for query in list(aircraft_data.keys()):
-        # hardcode filtering for testing
-        if query == 'mil':
-            ac_list = [ac for ac in aircraft_data[query]['ac'] if geo.within_poi(ac, config['poi']['baltic']['coordinates'])]
-            print(json.dumps(ac_list, indent=4, default=str))
+        # Base filtering dynamically on config
+        if 'filter' in config['endpoints'][query]:
+            #ac_list = [ac for ac in aircraft_data[query]['ac'] if geo.within_poi(ac, config['poi']['baltic']['coordinates'])]
+            ac_list = poi_filter(config['poi'][config['endpoints'][query]['filter']], aircraft_data[query]['ac'])
         else:
+            # No filtering specified in config, take all aircraft
             ac_list = aircraft_data[query]['ac']
         if len(aircraft_data[query]['tables']) >= 2:
+            # Read table names from config
             ac_table = aircraft_data[query]['tables'][0]
             pos_table = aircraft_data[query]['tables'][1]
         else:
             raise ValueError('Both aircraft table and positions table must be defined in config!')
-        # TODO: Add argument to process, cleanup and print so correct table is treated
-        # TODO: Then implement a lat/lon filtering function to filter for baltic
-        print(f"--- {now} Upserting {len(ac_list)} aircraft ---")
+        
+        if LOUD: print(f"--- {now} Upserting {len(ac_list)} aircraft ---")
         process_aircraft_data(ac_list, ac_table, pos_table)
 
-        if '--silent' not in argv:
-            print("\n--- Running cleanup task (1-hour threshold) ---")
+        if LOUD: print("\n--- Running cleanup task (1-hour threshold) ---")
         cleanup_old_aircraft(ac_table, pos_table, timeout_seconds=3600)
         
-        if '--silent' not in argv:
+        if LOUD: 
             print("\n--- Verifying Database Contents (After Cleanup) ---")
             print_db_contents(ac_table)
 
