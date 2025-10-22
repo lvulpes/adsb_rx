@@ -3,10 +3,14 @@
 		"mil": {
 			"tables": ["aircraft_military", "positions_military"],
 			"url": "https://api.adsb.one/v2/mil",
-			"filter": "baltic"},
+			"filter": "baltic",
+			"stale_timeout": "24"
+		},
 		"home": {
 			"tables": ["aircraft", "positions"],
-			 "url": "https://api.adsb.one/v2/point/47.4999/8.7262/10"}
+			 "url": "https://api.adsb.one/v2/point/47.4999/8.7262/10",
+			 "stale_timeout": "1"
+			}
 	},
 	"poi": {
 		"baltic": {

@@ -176,7 +176,7 @@ def print_db_contents(ac_table):
         
         print("\n--- Current Database Contents ---")
         
-        print("\n[ aircraft table ]")
+        print(f"\n[{ac_table}]")
         cursor.execute(f"SELECT icao24, flight, first_seen, last_seen, squawk FROM {ac_table}")
         rows = cursor.fetchall()
         if not rows:
@@ -231,14 +231,16 @@ def main(argv):
             # Read table names from config
             ac_table = aircraft_data[query]['tables'][0]
             pos_table = aircraft_data[query]['tables'][1]
+
         else:
             raise ValueError('Both aircraft table and positions table must be defined in config!')
         
+        timeout_hours = config['endpoints'][query]['stale_timeout']
         if LOUD: print(f"--- {now} Upserting {len(ac_list)} aircraft ---")
         process_aircraft_data(ac_list, ac_table, pos_table)
 
         if LOUD: print("\n--- Running cleanup task (1-hour threshold) ---")
-        cleanup_old_aircraft(ac_table, pos_table, timeout_seconds=3600)
+        cleanup_old_aircraft(ac_table, pos_table, timeout_seconds=3600 * int(timeout_hours))
         
         if LOUD: 
             print("\n--- Verifying Database Contents (After Cleanup) ---")
